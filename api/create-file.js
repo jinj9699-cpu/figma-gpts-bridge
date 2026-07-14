@@ -21,12 +21,12 @@ module.exports = async (req, res) => {
     const nodes = body.nodes || [];
 
     const FIGMA_TOKEN = process.env.FIGMA_TOKEN2;
-    if (!FIGMA_TOKEN2) {
-      return res.status(500).json({ error: 'FIGMA_TOKEN2 not set' });
+    if (!FIGMA_TOKEN) {
+      return res.status(500).json({ error: 'FIGMA_TOKEN not set' });
     }
 
     const headers = {
-      'X-Figma-Token': FIGMA_TOKEN2,
+      'X-Figma-Token': FIGMA_TOKEN,
       'Content-Type': 'application/json'
     };
 
