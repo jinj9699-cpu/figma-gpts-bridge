@@ -1,35 +1,46 @@
-const fetch = require('node-fetch');
-
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { project_id, file_name, nodes } = req.body;
-  const FIGMA_TOKEN = process.env.FIGMA_TOKEN;
-
-  const headers = {
-    'X-Figma-Token': FIGMA_TOKEN,
-    'Content-Type': 'application/json'
-  };
-
   try {
-    // 1. 创建文件
-    const createBody = { name: file_name };
-    if (project_id) createBody.project_id = project_id;
+    const body = req.body;
+    const project_id = body.project_id;
+    const file_name = body.file_name || 'Untitled';
+    const nodes = body.nodes || [];
+
+    const FIGMA_TOKEN = process.env.FIGMA_TOKEN;
+    if (!FIGMA_TOKEN) {
+      return res.status(500).json({ error: 'FIGMA_TOKEN not set' });
+    }
+
+    const headers = {
+      'X-Figma-Token': FIGMA_TOKEN,
+      'Content-Type': 'application/json'
+    };
+
+    // 1. 创建 Figma 文件
+    const createPayload = { name: file_name };
+    if (project_id) {
+      createPayload.project_id = project_id;
+    }
 
     const createResp = await fetch('https://api.figma.com/v1/files', {
       method: 'POST',
       headers,
-      body: JSON.stringify(createBody)
+      body: JSON.stringify(createPayload)
     });
+
+    if (!createResp.ok) {
+      const errText = await createResp.text();
+      return res.status(createResp.status).json({ error: `Figma create file failed: ${errText}` });
+    }
+
     const fileData = await createResp.json();
-    if (!createResp.ok) throw new Error(fileData.err || 'Create failed');
     const fileKey = fileData.key;
 
-    // 2. 添加节点
-    const nodesWithIds = nodes.map((node, i) => ({
+    // 2. 添加节点（带上临时 ID）
+    const nodesWithId = nodes.map((node, i) => ({
       ...node,
       id: `${100 + i}:0`
     }));
@@ -37,14 +48,21 @@ module.exports = async (req, res) => {
     const appendResp = await fetch(`https://api.figma.com/v1/files/${fileKey}/nodes`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ nodes: nodesWithIds })
+      body: JSON.stringify({ nodes: nodesWithId })
     });
-    const appendData = await appendResp.json();
-    if (!appendResp.ok) throw new Error(appendData.err || 'Append nodes failed');
+
+    if (!appendResp.ok) {
+      const errText = await appendResp.text();
+      return res.status(appendResp.status).json({
+        error: `Figma append nodes failed: ${errText}`,
+        file_key: fileKey
+      });
+    }
 
     const fileUrl = `https://www.figma.com/file/${fileKey}/${file_name.replace(/\s+/g, '-')}`;
-    res.status(200).json({ file_key: fileKey, file_url: fileUrl });
+    return res.status(200).json({ file_key: fileKey, file_url: fileUrl });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 };
