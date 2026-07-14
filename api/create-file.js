@@ -1,7 +1,15 @@
 // api/create-file.js
-// 使用 Node.js 内置 fetch，无需外部依赖
-
 module.exports = async (req, res) => {
+  // 设置 CORS 头，允许所有来源
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // 处理预检请求
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -22,11 +30,9 @@ module.exports = async (req, res) => {
       'Content-Type': 'application/json'
     };
 
-    // 1. 创建 Figma 文件
+    // 创建 Figma 文件
     const createPayload = { name: file_name };
-    if (project_id) {
-      createPayload.project_id = project_id;
-    }
+    if (project_id) createPayload.project_id = project_id;
 
     const createResp = await fetch('https://api.figma.com/v1/files', {
       method: 'POST',
@@ -42,7 +48,7 @@ module.exports = async (req, res) => {
     const fileData = await createResp.json();
     const fileKey = fileData.key;
 
-    // 2. 添加节点（带上临时 ID）
+    // 添加节点
     const nodesWithId = nodes.map((node, i) => ({
       ...node,
       id: `${100 + i}:0`
