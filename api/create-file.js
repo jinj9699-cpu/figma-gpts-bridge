@@ -1,3 +1,6 @@
+// api/create-file.js
+// 使用 Node.js 内置 fetch，无需外部依赖
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
